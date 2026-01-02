@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手撕日曆抽吉凶</title>
+    <style>
+        :root {
+            --paper-color: #fff9f0;
+            --font-main: #333;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+
+        /* SVG 濾鏡產生手撕纖維感 */
+        .svg-filter { position: absolute; width: 0; height: 0; }
+
+        .calendar-stack {
+            position: relative;
+            width: 320px;
+            height: 480px;
+            perspective: 1500px;
+        }
+
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: var(--paper-color);
+            padding: 30px 20px;
+            box-sizing: border-box;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform-origin: top center;
+            filter: url(#rough-edge);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* 撕掉動畫 */
+        .tearing {
+            animation: tearAnim 0.9s forwards ease-in;
+            pointer-events: none;
+        }
+
+        @keyframes tearAnim {
+            0% { transform: rotateX(0deg); opacity: 1; }
+            30% { transform: rotateX(-20deg) rotateZ(2deg); }
+            100% { transform: rotateX(-120deg) translateY(-1000px) rotateZ(15deg); opacity: 0; }
+        }
+
+        /* 內容樣式 */
+        .header { text-align: center; color: #666; margin-bottom: 10px; }
+        .year-month { font-size: 18px; letter-spacing: 2px; }
+        .weekday { font-size: 22px; font-weight: bold; margin-top: 5px; }
+
+        .fortune-badge {
+            margin-top: 15px;
+            padding: 4px 15px;
+            border-radius: 20px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .date-num {
+            font-size: 130px;
+            font-weight: 900;
+            margin: 10px 0;
+            line-height: 1;
+        }
+
+        .yiji-box {
+            width: 100%;
+            margin-top: auto;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .yiji-item { text-align: center; }
+        .circle {
+            display: inline-block;
+            width: 35px;
+            height: 35px;
+            line-height: 35px;
+            border-radius: 50%;
+            color: white;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .yi-bg { background-color: #2ecc71; }
+        .ji-bg { background-color: #e74c3c; }
+
+        .footer-tip {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #bbb;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <svg class="svg-filter">
+        <filter id="rough-edge">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="5" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" />
+        </filter>
+    </svg>
+
+    <div class="calendar-stack" id="stack"></div>
+
+    <script>
+        const stack = document.getElementById('stack');
+        let currentDate = new Date();
+
+        // 預設資料庫
+        const fortunes = [
+            { label: "大吉", color: "#d4af37" },
+            { label: "中吉", color: "#e67e22" },
+            { label: "小吉", color: "#27ae60" },
+            { label: "平", color: "#7f8c8d" },
+            { label: "凶", color: "#c0392b" }
+        ];
+
+        const activities = ["寫代碼", "面試", "表白", "運動", "理財", "開會", "睡懶覺", "大掃除", "購物", "發呆", "旅行", "吃大餐"];
+
+        // 撕紙聲 (Base64 格式，確保無外部檔案也能播放)
+        const ripSound = new Audio('https://www.soundjay.com/misc/sounds/paper-rip-1.mp3');
+
+        function getRandomElement(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function createPage(date) {
+            const page = document.createElement('div');
+            page.className = 'page';
+            
+            const f = getRandomElement(fortunes);
+            const yi = getRandomElement(activities);
+            let ji = getRandomElement(activities);
+            while (ji === yi) ji = getRandomElement(activities);
+
+            const year = date.getFullYear();
+            const month = date.toLocaleString('zh-TW', { month: 'long' });
+            const weekday = date.toLocaleString('zh-TW', { weekday: 'long' });
+            const day = date.getDate();
+
+            page.innerHTML = `
+                <div class="header">
+                    <div class="year-month">${year}年 ${month}</div>
+                    <div class="weekday">${weekday}</div>
+                </div>
+                <div class="fortune-badge" style="background-color: ${f.color}">${f.label}</div>
+                <div class="date-num" style="color: ${f.color}">${day}</div>
+                <div class="yiji-box">
+                    <div class="yiji-item">
+                        <span class="circle yi-bg">宜</span>
+                        <div>${yi}</div>
+                    </div>
+                    <div class="yiji-item">
+                        <span class="circle ji-bg">忌</span>
+                        <div>${ji}</div>
+                    </div>
+                </div>
+                <div class="footer-tip">點擊撕開新的一天</div>
+            `;
+
+            page.onclick = () => {
+                ripSound.currentTime = 0;
+                ripSound.play();
+                page.classList.add('tearing');
+                
+                // 準備下一頁
+                currentDate.setDate(currentDate.getDate() + 1);
+                const nextDate = new Date(currentDate);
+                const newPage = createPage(nextDate);
+                stack.prepend(newPage);
+
+                setTimeout(() => page.remove(), 900);
+            };
+
+            return page;
+        }
+
+        // 初始化
+        stack.appendChild(createPage(new Date(currentDate)));
+    </script>
+</body>
+</html>
